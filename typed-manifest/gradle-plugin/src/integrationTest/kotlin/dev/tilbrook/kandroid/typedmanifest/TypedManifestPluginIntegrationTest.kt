@@ -266,6 +266,83 @@ class TypedManifestPluginIntegrationTest {
     }
 
     @Test
+    fun `lint findings on generated entries point at the annotation`() {
+        val project = FixtureProject(ModuleKind.APPLICATION, "lint-locations")
+        project.baseManifest()
+        project.file(
+            "build.gradle.kts",
+            ModuleKind.APPLICATION.buildScript.replace(
+                "android {",
+                """
+                android {
+                    lint {
+                        abortOnError = false
+                        textReport = true
+                        textOutput = file("build/lint/lint.txt")
+                        xmlReport = true
+                        xmlOutput = file("build/lint/lint.xml")
+                        sarifReport = true
+                        sarifOutput = file("build/lint/lint.sarif")
+                    }
+                """.trimIndent(),
+            ),
+        )
+        val sourcePath = "src/main/kotlin/com/example/app/Activities.kt"
+        val source = project.file(
+            sourcePath,
+            """
+            package com.example.app
+
+            import android.app.Activity
+            import dev.tilbrook.kandroid.typedmanifest.Manifest
+
+            // B: browsable VIEW filter without data -> TypedManifestAppLinkUrl (built-in AppLinkUrlError suppressed)
+            @Manifest.Activity(
+                exported = true,
+                intentFilters = [
+                    Manifest.IntentFilter(
+                        actions = [Manifest.Action.VIEW],
+                        categories = [Manifest.Category.DEFAULT, Manifest.Category.BROWSABLE],
+                    ),
+                ],
+            )
+            class DeepLinkActivity : Activity()
+
+            // C: API 33 attribute with minSdk 24 -> built-in UnusedAttribute, remapped to this argument
+            @Manifest.Activity(
+                enableOnBackInvokedCallback = true,
+            )
+            class BackActivity : Activity()
+            """.trimIndent(),
+        ).readText()
+        val backLine = source.lines().indexOfFirst { "enableOnBackInvokedCallback" in it } + 1
+
+        project.run("lintDebug")
+
+        // A: generated overlay names its source.
+        val generated = project.generatedManifest()
+        assertTrue(generated.contains("<!-- BackActivity: $sourcePath:"), generated)
+        assertTrue(generated.contains("tools:ignore=\"AppLinkUrlError"), generated)
+
+        val text = project.read("build/lint/lint.txt")
+        val xml = project.read("build/lint/lint.xml")
+        val sarif = project.read("build/lint/lint.sarif")
+
+        // B: reported on the annotation by typed-manifest, not by the built-in check.
+        assertTrue(text.contains("[TypedManifestAppLinkUrl from dev.tilbrook:typed-manifest-lint]"), text)
+        assertFalse(text.contains("[AppLinkUrlError]"), text)
+
+        // C: built-in findings in the generated overlay now point at the annotation argument.
+        val unused = text.lines().firstOrNull { "[UnusedAttribute]" in it && "enableOnBackInvokedCallback" in it }
+        assertTrue(unused != null && unused.contains("Activities.kt:$backLine: Warning:"), text)
+        for ((name, report) in listOf("text" to text, "xml" to xml, "sarif" to sarif)) {
+            assertFalse(report.contains("generateDebugTypedManifest"), "$name report still references the generated manifest:\n$report")
+        }
+        assertTrue(Regex("Activities\\.kt\"\\s+line=\"$backLine\"").containsMatchIn(xml), xml)
+        assertTrue(sarif.contains("Activities.kt"), sarif)
+    }
+
+    @Test
     fun `published artifacts do not depend on kotlin-stdlib`() {
         val poms = File(Versions.testRepo, "dev/tilbrook").walkTopDown().filter { it.extension == "pom" }.toList()
         assertTrue(poms.size >= 3, "expected annotation, lint and plugin POMs, found $poms")
