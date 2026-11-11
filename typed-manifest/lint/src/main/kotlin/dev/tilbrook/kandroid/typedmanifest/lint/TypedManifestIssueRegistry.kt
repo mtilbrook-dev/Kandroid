@@ -10,6 +10,9 @@ class TypedManifestIssueRegistry : IssueRegistry() {
         ActivityExportDetector.REQUIRES_EXPORTED,
         ActivityExportDetector.EXPORTED_WITHOUT_REQUIREMENT,
         ImplicitIntentDetector.ISSUE,
+        AnnotatedManifestChecksDetector.APP_LINK_URL,
+        AnnotatedManifestChecksDetector.INSTANTIATABLE,
+        AnnotatedManifestChecksDetector.FIXED_ORIENTATION,
     )
 
     override val api: Int = CURRENT_API

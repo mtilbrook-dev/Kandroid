@@ -22,9 +22,17 @@ import org.jetbrains.uast.toUElement
 internal class AnnotatedActivity(
     val info: ActivityInfo,
     val annotation: UAnnotation,
+    /** Value expression for each argument that was written, by parameter name. */
+    val arguments: Map<String, PsiElement>,
+) {
     /** The value written for `exported`, if any. */
-    val exportedValue: PsiElement?,
-)
+    val exportedValue: PsiElement? get() = arguments["exported"]
+
+    /** Enum entry name written for [parameter] (`Manifest.ScreenOrientation.PORTRAIT` -> `PORTRAIT`). */
+    fun enumName(parameter: String): String? = arguments[parameter]?.text?.substringAfterLast('.')?.trim()
+
+    fun boolean(parameter: String): Boolean? = arguments[parameter]?.text?.trim()?.toBooleanStrictOrNull()
+}
 
 /**
  * Reads `@Manifest.Activity` from Kotlin or Java PSI. Nested annotation arguments are modelled
@@ -53,10 +61,17 @@ internal object AnnotationReader {
                 actions = f["actions"]?.let { elements(it) }.orEmpty().mapNotNull { string(it) },
                 categories = f["categories"]?.let { elements(it) }.orEmpty().mapNotNull { string(it) },
                 autoVerify = f["autoVerify"]?.let { bool(it) } == true,
+                data = f["data"]?.let { elements(it) }.orEmpty().mapNotNull { call(it) }.map { data ->
+                    DataInfo(
+                        named(data.valueArguments).mapNotNull { (k, v) -> string(v)?.let { k to it } }.toMap(),
+                        data,
+                    )
+                },
+                element = filter,
             )
         }
         val permission = args["permission"]?.let { string(it) }?.ifEmpty { null }
-        return AnnotatedActivity(ActivityInfo(name, exported?.let { bool(it) }, filters, permission), annotation, exported)
+        return AnnotatedActivity(ActivityInfo(name, exported?.let { bool(it) }, filters, permission), annotation, args)
     }
 
     private fun named(arguments: List<ValueArgument>): Map<String, KtExpression> =
@@ -94,10 +109,20 @@ internal object AnnotationReader {
                 actions = javaItems(f.findDeclaredAttributeValue("actions")).mapNotNull { javaConstant(it) as? String },
                 categories = javaItems(f.findDeclaredAttributeValue("categories")).mapNotNull { javaConstant(it) as? String },
                 autoVerify = javaConstant(f.findDeclaredAttributeValue("autoVerify")) == true,
+                data = javaItems(f.findDeclaredAttributeValue("data")).filterIsInstance<PsiAnnotation>().map { d ->
+                    DataInfo(
+                        d.parameterList.attributes.mapNotNull { a ->
+                            (javaConstant(a.value) as? String)?.let { (a.name ?: "value") to it }
+                        }.toMap(),
+                        d,
+                    )
+                },
+                element = f,
             )
         }
         val permission = (javaConstant(psi.findDeclaredAttributeValue("permission")) as? String)?.ifEmpty { null }
-        return AnnotatedActivity(ActivityInfo(name, javaConstant(exported) as? Boolean, filters, permission), annotation, exported)
+        val arguments = psi.parameterList.attributes.mapNotNull { a -> a.value?.let { (a.name ?: "value") to (it as PsiElement) } }.toMap()
+        return AnnotatedActivity(ActivityInfo(name, javaConstant(exported) as? Boolean, filters, permission), annotation, arguments)
     }
 
     private fun javaItems(value: PsiAnnotationMemberValue?): List<PsiAnnotationMemberValue> = when (value) {

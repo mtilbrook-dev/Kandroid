@@ -11,6 +11,15 @@ internal data class FilterInfo(
     val actions: List<String>,
     val categories: List<String>,
     val autoVerify: Boolean,
+    val data: List<DataInfo> = emptyList(),
+    /** Source of this filter, for reporting; null when read from XML. */
+    val element: com.intellij.psi.PsiElement? = null,
+)
+
+/** A `Manifest.Data(...)`: attribute name -> value, plus its source element. */
+internal data class DataInfo(
+    val values: Map<String, String>,
+    val element: com.intellij.psi.PsiElement? = null,
 )
 
 internal data class ActivityInfo(
