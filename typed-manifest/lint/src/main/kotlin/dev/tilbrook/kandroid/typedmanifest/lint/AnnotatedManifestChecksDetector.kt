@@ -120,8 +120,8 @@ class AnnotatedManifestChecksDetector : Detector(), SourceCodeScanner {
         if (constructors.any { it.parameterList.isEmpty && context.evaluator.isPublic(it) }) return true
         // Kotlin emits a no-arg JVM constructor when every primary-constructor parameter has a default.
         val primary = (node.sourcePsi as? KtClass)?.primaryConstructor ?: return false
-        return primary.valueParameters.all { it.hasDefaultValue() } &&
-            primary.visibilityModifier()?.text.let { it == null || it == "public" || it == "internal" }
+        val modifiers = primary.modifierList?.text.orEmpty().split(Regex("\\s+"))
+        return primary.valueParameters.all { it.hasDefaultValue() } && "private" !in modifiers && "protected" !in modifiers
     }
 
     // ---- DiscouragedApi / LockedOrientationActivity ----
