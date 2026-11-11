@@ -57,14 +57,14 @@ enum class ModuleKind(
             }
         """.trimIndent(),
     ),
-    /** AGP built-in Kotlin turned off; Kotlin compiled by `org.jetbrains.kotlin.android`. */
+    /** Legacy setup: built-in Kotlin off, `org.jetbrains.kotlin.android` compiles Kotlin (AGP 9 also needs `android.newDsl=false`). */
     APPLICATION_KGP(
         namespace = "com.example.appkgp",
         kotlinDir = "src/main/kotlin",
         javaDir = "src/main/java",
         manifestPath = "src/main/AndroidManifest.xml",
         assembleTask = "assembleDebug",
-        gradleProperties = "android.builtInKotlin=false\n",
+        gradleProperties = "android.builtInKotlin=false\nandroid.newDsl=false\n",
         buildScript = """
             plugins {
                 id("com.android.application")
@@ -108,14 +108,14 @@ enum class ModuleKind(
             }
         """.trimIndent(),
     ),
-    /** AGP built-in Kotlin turned off; Kotlin compiled by `org.jetbrains.kotlin.android`. */
+    /** Legacy setup: built-in Kotlin off, `org.jetbrains.kotlin.android` compiles Kotlin (AGP 9 also needs `android.newDsl=false`). */
     LIBRARY_KGP(
         namespace = "com.example.libkgp",
         kotlinDir = "src/main/kotlin",
         javaDir = "src/main/java",
         manifestPath = "src/main/AndroidManifest.xml",
         assembleTask = "assembleDebug",
-        gradleProperties = "android.builtInKotlin=false\n",
+        gradleProperties = "android.builtInKotlin=false\nandroid.newDsl=false\n",
         buildScript = """
             plugins {
                 id("com.android.library")
@@ -193,34 +193,6 @@ enum class ModuleKind(
                 compileOptions {
                     sourceCompatibility = JavaVersion.VERSION_17
                     targetCompatibility = JavaVersion.VERSION_17
-                }
-            }
-        """.trimIndent(),
-    ),
-    /** KMP + com.android.application with AGP's defaults (built-in Kotlin on, new DSL). */
-    KMP_APPLICATION_BUILT_IN_KOTLIN(
-        namespace = "com.example.kmpappbuiltin",
-        kotlinDir = "src/androidMain/kotlin",
-        javaDir = null,
-        manifestPath = "src/androidMain/AndroidManifest.xml",
-        assembleTask = "assembleDebug",
-        gradleProperties = "",
-        buildScript = """
-            plugins {
-                id("org.jetbrains.kotlin.multiplatform")
-                id("com.android.application")
-                id("dev.tilbrook.typed-manifest")
-            }
-            kotlin { androidTarget() }
-            android {
-                namespace = "com.example.kmpappbuiltin"
-                compileSdk = ${Versions.compileSdk}
-                defaultConfig {
-                    applicationId = "com.example.kmpappbuiltin"
-                    minSdk = ${Versions.minSdk}
-                    targetSdk = ${Versions.compileSdk}
-                    versionCode = 1
-                    versionName = "1.0"
                 }
             }
         """.trimIndent(),

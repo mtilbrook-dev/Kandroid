@@ -65,6 +65,11 @@ class DetailActivity : ComponentActivity()
   `variant.sources.manifests`. AGP's normal manifest merger takes it from there.
   `com.android.kotlin.multiplatform.library` ignores those overlays, so there
   `inject<Variant>TypedManifest` transforms the `MERGED_MANIFEST` artifact instead.
+- **Generates before `pre<Variant>Build`.** The generate task is wired in lazily
+  (`tasks.named { it == "preDebugBuild" }`), so the overlay exists before AGP's pre-build checks.
+- **Follows `android.builtInKotlin`.** With AGP's built-in Kotlin (the AGP 9 default) or a Kotlin
+  plugin applied, `.kt` and `.java` files are scanned. With `android.builtInKotlin=false` and no
+  Kotlin plugin, `.kt` files aren't compiled, so they're ignored.
 - **Secure by default.** `android:exported` is always written and defaults to `false`. A
   `MAIN`/`LAUNCHER` activity that isn't exported fails the build with a `File.kt:line` error.
 - **Only what you write is emitted.** The Kotlin default values on the annotation are placeholders.
@@ -72,12 +77,20 @@ class DetailActivity : ComponentActivity()
 - **Adds the annotations as a compile-only dependency.** For each enabled entry kind that is valid
   for the module type, the plugin adds `dev.tilbrook:typed-manifest-annotations` to `compileOnly`
   (`androidMainCompileOnly` for KMP). The annotations have `SOURCE` retention, so nothing ships in your APK/AAR.
+- **Kotlin-version friendly.** Neither published artifact depends on `kotlin-stdlib` (it is
+  `compileOnly`), and both are compiled with language/API version 2.2. A consumer's Kotlin version
+  is never bumped, and Kotlin 2.2+ compilers (including AGP 9's built-in Kotlin) can read them.
 - **Covers every `<activity>` attribute**, plus `<intent-filter>` (with `<action>`, `<category>`,
   `<data>`), `<meta-data>` and `<layout>`.
 
-Supported modules: `com.android.application`, `com.android.library`,
-`com.android.kotlin.multiplatform.library`, and the legacy `kotlin("multiplatform")` +
-`com.android.application`/`com.android.library` setup.
+Supported and tested modules:
+
+| Module | Kotlin compiled by |
+| --- | --- |
+| `com.android.application` / `com.android.library` | AGP built-in Kotlin (default) |
+| `com.android.application` / `com.android.library` + `org.jetbrains.kotlin.android` | KGP; needs `android.builtInKotlin=false` and `android.newDsl=false` on AGP 9 |
+| `com.android.kotlin.multiplatform.library` | KGP |
+| `kotlin("multiplatform")` + `com.android.application` | KGP; AGP 9 only allows this with `android.builtInKotlin=false` and `android.newDsl=false` |
 
 ### Why the plugin reads source
 
