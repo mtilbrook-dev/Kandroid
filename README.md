@@ -103,6 +103,9 @@ and show as highlights (with tooltips and quick fixes) in Android Studio:
 | `IntentFilterRequiresExported` | An activity with a filter that only other apps or the system use (LAUNCHER, BROWSABLE, `autoVerify` App Links, SEND share targets, settings, widget configuration, …) that isn't `exported = true` | Set `exported = true` |
 | `ImplicitIntentToUnexportedActivity` | `Intent("action")`, `setAction(…)` or `intent.action = …` with no package or component set, whose action matches a non-exported activity. On targetSdk 34+, implicit intents only reach exported activities | Make the intent explicit, or export the activity |
 | `ExportedWithoutRequirement` | `exported = true` with no intent filter and no `permission`, so any app can start it by class name | Set `exported = false`, or guard it with a (signature) permission |
+| `TypedManifestAppLinkUrl` | Broken deep links / App Links in `Manifest.IntentFilter`: browsable `VIEW` without data, data without a scheme, uppercase or `://` schemes, paths not starting with `/`, `autoVerify` without http(s) and a host | Fix the `Manifest.Data` |
+| `TypedManifestInstantiatable` | An annotated class Android can't instantiate: abstract, inner, `object`, no public no-arg constructor, or not an `Activity` | Fix the class |
+| `TypedManifestFixedOrientation` | A locked `screenOrientation` or `resizeableActivity = false` (letterboxed on large screens; ignored there on Android 16 for targetSdk 36) | Support all orientations/sizes |
 
 The first and third checks run on both `@Manifest.Activity` and `<activity>` in AndroidManifest.xml.
 The implicit-intent check reads the module's merged manifest (which includes generated entries)
@@ -114,6 +117,32 @@ partner starting it by component name, or a system `settingsActivity` reference.
 `tools:ignore`.
 
 Turn the checks off with `typedManifest { addLintChecks = false }`.
+
+### Where findings point
+
+Every finding about an annotated activity should land on the annotation, not on the generated
+manifest:
+
+1. **Source comments.** Each generated entry is preceded by `<!-- Name: path/To/File.kt:line -->`,
+   so anything that does show the generated file (merger errors, AGP's merged-manifest view) says
+   where it came from.
+2. **Built-in checks re-implemented on the annotation.** `AppLinkUrlError`, `Instantiatable`,
+   `DiscouragedApi` (orientation) and `LockedOrientationActivity` run as the `TypedManifest*`
+   checks above, with `@SuppressLint` support. Generated entries carry
+   `tools:ignore="AppLinkUrlError,Instantiatable,DiscouragedApi,LockedOrientationActivity"` so the
+   built-in versions don't report twice; the merger strips `tools:` attributes from the final manifest.
+3. **Report remapping.** Any other built-in finding in the generated manifest (for example
+   `UnusedAttribute` for `enableOnBackInvokedCallback` with a low `minSdk`) is rewritten to the
+   annotation argument that produced it. `remap<Variant>LintReports` runs between
+   `lintReport<Variant>` and `lint<Variant>` using a line map written by the generate task, so the
+   console output, `build/reports/lint-results-*.{txt,xml,sarif}` and any configured
+   `textOutput`/`xmlOutput`/`sarifOutput` all point at source. SARIF uploads (e.g. GitHub code
+   scanning) therefore annotate the right line.
+
+Limits: the HTML report isn't rewritten; `com.android.kotlin.multiplatform.library` modules (which
+inject into the merged manifest rather than generate an overlay) get source comments but no
+remapping; and AGP manifest-merger errors still name the generated file, with the source comment
+next to the reported line.
 
 ### Why the plugin reads source
 
