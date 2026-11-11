@@ -51,6 +51,10 @@ testing {
                     val annotations = layout.projectDirectory.file("../annotations/src/main/kotlin/dev/tilbrook/kandroid/typedmanifest/Manifest.kt").asFile
                     inputs.file(annotations).withPropertyName("annotationsSource").withPathSensitivity(PathSensitivity.NONE)
                     systemProperty("typedManifest.annotationsSource", annotations.absolutePath)
+                    testLogging {
+                        events("failed")
+                        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    }
                 }
             }
         }
