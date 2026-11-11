@@ -254,10 +254,13 @@ class TypedManifestPluginIntegrationTest {
 
         project.run("lintDebug")
         val report = project.read("build/lint.txt")
-        assertTrue(report.contains("[IntentFilterRequiresExported]"), report)
-        assertTrue(report.contains("[ExportedWithoutRequirement]"), report)
-        assertTrue(report.contains("[ImplicitIntentToUnexportedActivity]"), report)
+        assertTrue(report.contains("[IntentFilterRequiresExported from dev.tilbrook:typed-manifest-lint]"), report)
+        assertTrue(report.contains("[ExportedWithoutRequirement from dev.tilbrook:typed-manifest-lint]"), report)
+        assertTrue(report.contains("[ImplicitIntentToUnexportedActivity from dev.tilbrook:typed-manifest-lint]"), report)
         assertTrue(report.contains("Navigation.kt"), report)
+        // Annotation-backed entries are reported on the annotation, not again on the generated overlay.
+        assertFalse(report.contains("generateDebugTypedManifest"), report)
+        assertTrue(report.contains("0 errors, 3 warnings"), report)
     }
 
     @Test
