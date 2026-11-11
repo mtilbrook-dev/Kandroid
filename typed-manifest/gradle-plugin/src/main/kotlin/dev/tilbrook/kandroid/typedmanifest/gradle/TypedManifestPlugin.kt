@@ -147,16 +147,23 @@ class TypedManifestPlugin : Plugin<Project> {
         val preBuild = "pre${capitalized}Build"
         project.tasks.named { it == preBuild }.configureEach { it.dependsOn(task) }
 
-        // Lint findings in the generated overlay -> annotation locations, after the reports are written.
-        val lintReport = "lintReport$capitalized"
-        val lintReportTasks = project.tasks.named { it == lintReport }
-        val remap = project.tasks.register("remap${capitalized}LintReports", RemapLintReportsTask::class.java) {
+        // Lint findings in the generated overlay -> annotation locations (see RemapLintReportsTask).
+        val lintReportTasks = project.tasks.named { it == "lintReport$capitalized" }
+        val lintTasks = project.tasks.named { it == "lint$capitalized" }
+        fun remapTask(name: String, reports: Any) = project.tasks.register(name, RemapLintReportsTask::class.java) {
             it.sourceMaps.from(task.flatMap { generate -> generate.sourceMap })
             it.projectDirectory.set(project.layout.projectDirectory)
             // A collection of tasks resolves to their outputs, lazily.
-            it.reports.from(lintReportTasks)
+            it.reports.from(reports)
+            it.mustRunAfter(reports)
         }
-        lintReportTasks.configureEach { it.finalizedBy(remap) }
+        val remapReports = remapTask("remap${capitalized}LintReports", lintReportTasks)
+        val remapOutputs = remapTask("remap${capitalized}LintOutputs", lintTasks)
+        lintReportTasks.configureEach { it.finalizedBy(remapReports) }
+        lintTasks.configureEach {
+            it.dependsOn(remapReports)
+            it.finalizedBy(remapOutputs)
+        }
 
         // Any variant's namespace is fine for resolving relative names in the main manifest.
         val namespace = variant.namespace

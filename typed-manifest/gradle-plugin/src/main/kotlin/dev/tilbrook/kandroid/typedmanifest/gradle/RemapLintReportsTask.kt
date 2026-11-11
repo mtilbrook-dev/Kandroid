@@ -14,9 +14,14 @@ import org.gradle.api.tasks.UntrackedTask
 import java.io.File
 
 /**
- * Runs after `lintReport<Variant>` and rewrites findings located in the generated manifest so they
- * point at the `@Manifest` annotation that produced them. Handles XML, SARIF and text reports;
- * the HTML report and the console output from `lint<Variant>` still show the generated file.
+ * Rewrites lint findings located in the generated manifest so they point at the `@Manifest`
+ * annotation that produced them, in XML, SARIF and text reports (not HTML).
+ *
+ * AGP writes reports in two steps: `lintReport<Variant>` produces `build/reports/lint-results-*`
+ * and an intermediate text report, then `lint<Variant>` prints to the console and copies to any
+ * configured `textOutput`/`xmlOutput`/`sarifOutput`. One instance runs between the two (so the
+ * console and copies are already remapped); a second finalizes `lint<Variant>` for anything it
+ * writes itself. Remapping is idempotent.
  */
 @UntrackedTask(because = "Rewrites the lint report task's outputs in place")
 abstract class RemapLintReportsTask : DefaultTask() {
@@ -40,7 +45,6 @@ abstract class RemapLintReportsTask : DefaultTask() {
     @TaskAction
     fun remap() {
         val maps = sourceMaps.files.filter { it.isFile }.map { SourceMap.read(it) }.filter { it.lines.isNotEmpty() }
-        logger.lifecycle("typed-manifest DIAG maps=${maps.map { it.generatedManifest + " lines=" + it.lines.keys }} reports=${reports.files}")
         if (maps.isEmpty()) return
         val root = projectDirectory.get().asFile
         val cache = HashMap<String, List<String>?>()
