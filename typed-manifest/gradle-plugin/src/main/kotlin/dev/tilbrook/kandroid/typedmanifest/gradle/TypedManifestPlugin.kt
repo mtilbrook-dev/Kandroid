@@ -46,7 +46,7 @@ class TypedManifestPlugin : Plugin<Project> {
         project.pluginManager.withPlugin("com.android.kotlin.multiplatform.library") {
             wire {
                 project.extensions.getByType(KotlinMultiplatformAndroidComponentsExtension::class.java)
-                    .onVariant { registerVariant(project, extension, it, migrate) }
+                    .onVariants { registerVariant(project, extension, it, migrate) }
             }
         }
 

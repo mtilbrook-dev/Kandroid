@@ -83,7 +83,7 @@ val testRepo = rootProject.layout.buildDirectory.dir("test-repo")
 
 testing {
     suites {
-        val test by getting(JvmTestSuite::class) {
+        named<JvmTestSuite>("test") {
             useJUnitJupiter(libs.versions.junit)
         }
 
@@ -95,7 +95,7 @@ testing {
             targets.configureEach {
                 testTask.configure {
                     description = "Builds Android/KMP fixture projects against the published plugin."
-                    shouldRunAfter(test)
+                    shouldRunAfter(tasks.named("test"))
                     dependsOn(
                         "publishAllPublicationsToTestRepoRepository",
                         ":typed-manifest:annotations:publishAllPublicationsToTestRepoRepository",
