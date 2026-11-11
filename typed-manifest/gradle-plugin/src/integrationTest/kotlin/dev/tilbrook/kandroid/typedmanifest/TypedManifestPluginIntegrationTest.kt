@@ -66,7 +66,8 @@ class TypedManifestPluginIntegrationTest {
             )
         }
 
-        project.run(kind.assembleTask)
+        val build = project.run(kind.assembleTask)
+        project.assertGenerateTaskRan(build)
 
         val activities = project.mergedActivities()
         val main = activities.getValue("$pkg.MainActivity")
@@ -189,7 +190,7 @@ class TypedManifestPluginIntegrationTest {
         )
         val off = project.run("dependencies", "--configuration", "debugCompileClasspath", "generateDebugTypedManifest")
         assertFalse(off.output.contains(coordinate), off.output)
-        val generated = project.read("build/generated/typed-manifest/debug/AndroidManifest.xml")
+        val generated = project.generatedManifest()
         assertTrue(generated.contains("<application />"), generated)
     }
 }

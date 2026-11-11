@@ -1,6 +1,8 @@
 [versions]
 kandroid = "0.1.0"
 kotlin = "2.4.10"
+# Oldest Kotlin our published artifacts target (language/API 2.2 + this stdlib).
+kotlinConsumerStdlib = "2.2.20"
 gradle-android = "9.4.1"
 # Bytecode level for published artifacts. Gradle 9 itself requires Java 17+.
 jvmTarget = "17"

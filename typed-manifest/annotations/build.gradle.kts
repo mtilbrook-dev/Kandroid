@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -9,7 +10,14 @@ plugins {
 val jvmTargetVersion = libs.versions.jvmTarget.get()
 
 kotlin {
-    compilerOptions { jvmTarget = JvmTarget.fromTarget(jvmTargetVersion) }
+    // Emit metadata older compilers can read: AGP 9.x built-in Kotlin and Gradle's embedded
+    // Kotlin are behind the version we build with.
+    coreLibrariesVersion = libs.versions.kotlinConsumerStdlib.get()
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(jvmTargetVersion)
+        languageVersion = KotlinVersion.KOTLIN_2_2
+        apiVersion = KotlinVersion.KOTLIN_2_2
+    }
 }
 
 java {
