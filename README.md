@@ -63,6 +63,8 @@ class DetailActivity : ComponentActivity()
 - **Generates a manifest overlay per variant.** `generate<Variant>TypedManifest` scans the variant's
   Kotlin and Java source directories, then hands the result to AGP through
   `variant.sources.manifests`. AGP's normal manifest merger takes it from there.
+  `com.android.kotlin.multiplatform.library` ignores those overlays, so there
+  `inject<Variant>TypedManifest` transforms the `MERGED_MANIFEST` artifact instead.
 - **Secure by default.** `android:exported` is always written and defaults to `false`. A
   `MAIN`/`LAUNCHER` activity that isn't exported fails the build with a `File.kt:line` error.
 - **Only what you write is emitted.** The Kotlin default values on the annotation are placeholders.

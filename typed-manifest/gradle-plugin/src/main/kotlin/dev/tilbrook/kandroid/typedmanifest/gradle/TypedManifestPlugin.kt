@@ -1,5 +1,6 @@
 package dev.tilbrook.kandroid.typedmanifest.gradle
 
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.Component
 import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtension
@@ -46,7 +47,7 @@ class TypedManifestPlugin : Plugin<Project> {
         project.pluginManager.withPlugin("com.android.kotlin.multiplatform.library") {
             wire {
                 project.extensions.getByType(KotlinMultiplatformAndroidComponentsExtension::class.java)
-                    .onVariants { registerVariant(project, extension, it, migrate) }
+                    .onVariants { registerKmpLibraryVariant(project, extension, it, migrate) }
             }
         }
 
@@ -110,6 +111,32 @@ class TypedManifestPlugin : Plugin<Project> {
         variant.sources.manifests.addGeneratedManifestFile(task, GenerateTypedManifestTask::outputManifest)
 
         // Any variant's namespace is fine for resolving relative names in the main manifest.
+        val namespace = variant.namespace
+        migrate.configure { if (!it.namespace.isPresent) it.namespace.set(namespace) }
+    }
+
+    /**
+     * The KMP library plugin's manifest merge doesn't read `sources.manifests`, so transform the
+     * merged manifest instead.
+     */
+    private fun registerKmpLibraryVariant(
+        project: Project,
+        extension: TypedManifestExtension,
+        variant: Component,
+        migrate: TaskProvider<MigrateManifestTask>,
+    ) {
+        val capitalized = variant.name.replaceFirstChar { it.uppercase() }
+        val task = project.tasks.register("inject${capitalized}TypedManifest", InjectTypedManifestTask::class.java) {
+            it.group = "typed manifest"
+            it.description = "Adds @Manifest entries to the ${variant.name} merged manifest."
+            variant.sources.kotlin?.let { dirs -> it.sourceDirectories.from(dirs.static) }
+            variant.sources.java?.let { dirs -> it.sourceDirectories.from(dirs.static) }
+            it.activitiesEnabled.set(extension.activities.enabled)
+        }
+        variant.artifacts.use(task)
+            .wiredWithFiles(InjectTypedManifestTask::mergedManifest, InjectTypedManifestTask::updatedManifest)
+            .toTransform(SingleArtifact.MERGED_MANIFEST)
+
         val namespace = variant.namespace
         migrate.configure { if (!it.namespace.isPresent) it.namespace.set(namespace) }
     }

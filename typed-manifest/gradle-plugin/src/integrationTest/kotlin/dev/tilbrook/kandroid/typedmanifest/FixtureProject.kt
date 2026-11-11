@@ -202,11 +202,11 @@ class FixtureProject(val kind: ModuleKind, testName: String) {
 
     fun run(vararg args: String): BuildResult = runner(*args).build()
 
-    /** Asserts a `generate*TypedManifest` task ran, listing what did run otherwise. */
+    /** Asserts a `generate*`/`inject*TypedManifest` task ran, listing what did run otherwise. */
     fun assertGenerateTaskRan(result: BuildResult) {
         val ran = result.tasks.map { it.path }
-        check(ran.any { it.endsWith("TypedManifest") && it.startsWith(":generate") }) {
-            "No generate*TypedManifest task ran. Tasks: $ran\n" + runner("tasks", "--all").build().output
+        check(ran.any { it.endsWith("TypedManifest") }) {
+            "No *TypedManifest task ran. Tasks: $ran\n" + runner("tasks", "--all").build().output
         }
     }
 

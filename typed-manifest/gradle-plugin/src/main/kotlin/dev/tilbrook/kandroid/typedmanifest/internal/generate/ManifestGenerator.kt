@@ -55,6 +55,11 @@ internal object ManifestGenerator {
         append("</manifest>\n")
     }
 
+    /** Just the entry elements, indented for placement inside `<application>`. */
+    fun renderEntries(entries: List<ManifestElement>, depth: Int): String = buildString {
+        entries.forEach { appendElement(it, depth) }
+    }
+
     private fun StringBuilder.appendElement(element: ManifestElement, depth: Int) {
         val indent = "    ".repeat(depth)
         append(indent).append('<').append(element.tag)
