@@ -69,8 +69,8 @@ class TypedManifestPluginIntegrationTest {
         val build = project.run(kind.assembleTask)
         project.assertGenerateTaskRan(build)
 
+        val main = project.mergedActivity("$pkg.MainActivity")
         val activities = project.mergedActivities()
-        val main = activities.getValue("$pkg.MainActivity")
         assertEquals("true", main.androidAttr("exported"))
         assertEquals("singleTop", main.androidAttr("launchMode"))
         assertEquals("orientation|screenSize", main.androidAttr("configChanges"))
@@ -138,8 +138,8 @@ class TypedManifestPluginIntegrationTest {
 
         project.run(kind.assembleTask)
 
+        val merged = project.mergedActivity("$pkg.MainActivity")
         val activities = project.mergedActivities()
-        val merged = activities.getValue("$pkg.MainActivity")
         assertEquals("true", merged.androidAttr("exported"))
         assertEquals("singleTask", merged.androidAttr("launchMode"))
         assertEquals("stateHidden|adjustResize", merged.androidAttr("windowSoftInputMode"))
