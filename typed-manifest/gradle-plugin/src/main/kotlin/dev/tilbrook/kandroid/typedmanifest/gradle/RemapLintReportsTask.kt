@@ -40,6 +40,7 @@ abstract class RemapLintReportsTask : DefaultTask() {
     @TaskAction
     fun remap() {
         val maps = sourceMaps.files.filter { it.isFile }.map { SourceMap.read(it) }.filter { it.lines.isNotEmpty() }
+        logger.lifecycle("typed-manifest DIAG maps=${maps.map { it.generatedManifest + " lines=" + it.lines.keys }} reports=${reports.files}")
         if (maps.isEmpty()) return
         val root = projectDirectory.get().asFile
         val cache = HashMap<String, List<String>?>()
