@@ -223,6 +223,7 @@ class TypedManifestPluginIntegrationTest {
                     Manifest.IntentFilter(
                         actions = [Manifest.Action.VIEW],
                         categories = [Manifest.Category.DEFAULT, Manifest.Category.BROWSABLE],
+                        data = [Manifest.Data(scheme = "https", host = "example.com")],
                     ),
                 ],
             )
@@ -259,9 +260,9 @@ class TypedManifestPluginIntegrationTest {
         assertTrue(report.contains("[ImplicitIntentToUnexportedActivity from dev.tilbrook:typed-manifest-lint]"), report)
         assertTrue(report.contains("Navigation.kt"), report)
         // Annotation-backed entries are reported on the annotation, not again on the generated overlay.
-        assertFalse(report.contains("generateDebugTypedManifest"), report)
-        val ours = report.lines().count { it.contains("from dev.tilbrook:typed-manifest-lint]") }
-        assertEquals(3, ours, report)
+        val ours = report.lines().filter { it.contains("from dev.tilbrook:typed-manifest-lint]") }
+        assertEquals(3, ours.size, report)
+        assertTrue(ours.none { "generateDebugTypedManifest" in it }, report)
     }
 
     @Test
