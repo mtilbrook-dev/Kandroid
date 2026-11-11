@@ -59,7 +59,7 @@ class ActivityExportDetectorTest : LintDetectorTest() {
             ).indented(),
         )
             .expectWarningCount(1)
-            .expectContains("MainActivity` must be exported because it is a launcher entry point")
+            .expectContains("MainActivity must be exported because it is a launcher entry point")
     }
 
     fun testJavaAutoVerifyIsFlagged() {
@@ -127,7 +127,7 @@ class ActivityExportDetectorTest : LintDetectorTest() {
         )
             .expectWarningCount(1)
             .expectContains("ExportedWithoutRequirement")
-            .expectContains("OpenActivity` is exported but has no intent filter")
+            .expectContains("OpenActivity is exported but has no intent filter")
     }
 
     fun testManifestXml() {
@@ -154,7 +154,7 @@ class ActivityExportDetectorTest : LintDetectorTest() {
             .expectWarningCount(2)
             .expectContains("IntentFilterRequiresExported")
             .expectContains("ExportedWithoutRequirement")
-            .expectContains("Browsable` must be exported")
-            .expectContains("Open` is exported but has no intent filter")
+            .expectContains("Browsable must be exported")
+            .expectContains("Open is exported but has no intent filter")
     }
 }
