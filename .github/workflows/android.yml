@@ -1,0 +1,60 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 23 (Zulu)
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '23'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # 1. Compile everything (annotations + plugin).
+      - name: Build
+        run: ./gradlew assemble --stacktrace
+
+      # 2. Fast unit tests: source parser, generator, migrator.
+      - name: Unit tests
+        run: ./gradlew test --stacktrace
+
+      # 3. Publish to build/test-repo and build app / library / KMP fixture projects.
+      - name: Integration tests
+        run: ./gradlew integrationTest --stacktrace
+
+      # 4. Everything else wired into check (plugin validation etc.).
+      - name: Check
+        run: ./gradlew build --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          retention-days: 7
