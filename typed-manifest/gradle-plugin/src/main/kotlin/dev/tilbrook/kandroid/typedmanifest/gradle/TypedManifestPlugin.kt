@@ -136,6 +136,8 @@ class TypedManifestPlugin : Plugin<Project> {
             it.outputManifest.set(
                 project.layout.buildDirectory.file("generated/typed-manifest/${variant.name}/AndroidManifest.xml"),
             )
+            it.sourceMap.set(project.layout.buildDirectory.file("intermediates/typed-manifest/${variant.name}/source-map.json"))
+            it.projectDirectory.set(project.layout.projectDirectory)
         }
         variant.sources.manifests.addGeneratedManifestFile(task, GenerateTypedManifestTask::outputManifest)
 

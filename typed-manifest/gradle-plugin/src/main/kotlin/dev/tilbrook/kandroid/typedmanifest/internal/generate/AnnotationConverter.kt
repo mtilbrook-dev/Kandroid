@@ -3,6 +3,7 @@ package dev.tilbrook.kandroid.typedmanifest.internal.generate
 import dev.tilbrook.kandroid.typedmanifest.internal.model.AnnotationSpec
 import dev.tilbrook.kandroid.typedmanifest.internal.model.ManifestElement
 import dev.tilbrook.kandroid.typedmanifest.internal.model.ParamKind
+import dev.tilbrook.kandroid.typedmanifest.internal.model.SourceRef
 import dev.tilbrook.kandroid.typedmanifest.internal.model.Specs
 import dev.tilbrook.kandroid.typedmanifest.internal.source.AnnotatedClass
 import dev.tilbrook.kandroid.typedmanifest.internal.source.AnnotationCall
@@ -16,7 +17,11 @@ import dev.tilbrook.kandroid.typedmanifest.internal.source.ReferenceValue
 import dev.tilbrook.kandroid.typedmanifest.internal.source.StringValue
 
 /** Converts a parsed `@Manifest.*` annotation into a [ManifestElement]. */
-internal class AnnotationConverter(private val source: ParsedSource) {
+internal class AnnotationConverter(
+    private val source: ParsedSource,
+    /** Path recorded in [SourceRef]s; usually relative to the project directory. */
+    private val displayPath: String = source.path,
+) {
 
     private val problems = ArrayList<String>()
 
@@ -38,7 +43,7 @@ internal class AnnotationConverter(private val source: ParsedSource) {
         if (body.attributes.count { it.first == "parentActivityName" } > 1) {
             problem(annotated.annotation.line, "Set either parentActivity or parentActivityName, not both")
         }
-        val element = ManifestElement("activity", attrs, body.children)
+        val element = ManifestElement("activity", attrs, body.children, body.source)
         validateActivity(element, annotated)
         return (if (problems.isEmpty()) element else null) to problems.toList()
     }
@@ -61,6 +66,7 @@ internal class AnnotationConverter(private val source: ParsedSource) {
 
     private fun convert(call: AnnotationCall, spec: AnnotationSpec): ManifestElement? {
         val attrs = ArrayList<Pair<String, String>>()
+        val attrLines = HashMap<String, Int>()
         val children = ArrayList<ManifestElement>()
         val seen = HashSet<String>()
         val before = problems.size
@@ -81,7 +87,9 @@ internal class AnnotationConverter(private val source: ParsedSource) {
             }
             when (val kind = param.kind) {
                 is ParamKind.NamedChildren -> asList(arg.value).forEach { v ->
-                    string(v)?.let { children += ManifestElement(kind.tag, listOf("name" to it)) }
+                    string(v)?.let {
+                        children += ManifestElement(kind.tag, listOf("name" to it), source = SourceRef(displayPath, v.line))
+                    }
                 }
                 is ParamKind.Nested -> {
                     val nestedSpec = kind.spec()
@@ -95,7 +103,10 @@ internal class AnnotationConverter(private val source: ParsedSource) {
                         }
                     }
                 }
-                else -> scalar(kind, arg.value)?.let { attrs += param.xmlName to it }
+                else -> scalar(kind, arg.value)?.let {
+                    attrs += param.xmlName to it
+                    attrLines[param.xmlName] = arg.line
+                }
             }
         }
         if (spec === Specs.metaData) {
@@ -105,7 +116,7 @@ internal class AnnotationConverter(private val source: ParsedSource) {
             if (valueCount != 1) problem(call.line, "Manifest.MetaData needs exactly one of value or resource")
         }
         if (problems.size > before) return null
-        return ManifestElement(spec.tag, attrs, children)
+        return ManifestElement(spec.tag, attrs, children, SourceRef(displayPath, call.line, attrLines))
     }
 
     private fun asList(value: AnnotationValue): List<AnnotationValue> =
