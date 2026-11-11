@@ -199,9 +199,71 @@ class TypedManifestPluginIntegrationTest {
     }
 
     @Test
+    fun `lint checks are added and see generated manifest entries`() {
+        val project = FixtureProject(ModuleKind.APPLICATION, "lint")
+        project.baseManifest()
+        project.file(
+            "build.gradle.kts",
+            ModuleKind.APPLICATION.buildScript.replace(
+                "android {",
+                "android {\n    lint {\n        abortOnError = false\n        textReport = true\n        textOutput = file(\"build/lint.txt\")\n    }",
+            ),
+        )
+        project.file(
+            "src/main/kotlin/com/example/app/Activities.kt",
+            """
+            package com.example.app
+
+            import android.app.Activity
+            import dev.tilbrook.kandroid.typedmanifest.Manifest
+
+            // BROWSABLE link handler that isn't exported -> IntentFilterRequiresExported
+            @Manifest.Activity(
+                intentFilters = [
+                    Manifest.IntentFilter(
+                        actions = [Manifest.Action.VIEW],
+                        categories = [Manifest.Category.DEFAULT, Manifest.Category.BROWSABLE],
+                    ),
+                ],
+            )
+            class DeepLinkActivity : Activity()
+
+            // Internal action, not exported (correct on its own)
+            @Manifest.Activity(intentFilters = [Manifest.IntentFilter(actions = ["com.example.app.OPEN"])])
+            class HiddenActivity : Activity()
+
+            // Exported without a filter or permission -> ExportedWithoutRequirement
+            @Manifest.Activity(exported = true)
+            class OpenActivity : Activity()
+            """.trimIndent(),
+        )
+        // A different file: HiddenActivity is only known here through the merged manifest.
+        project.file(
+            "src/main/kotlin/com/example/app/Navigation.kt",
+            """
+            package com.example.app
+
+            import android.content.Context
+            import android.content.Intent
+
+            fun openHidden(context: Context) {
+                context.startActivity(Intent("com.example.app.OPEN"))
+            }
+            """.trimIndent(),
+        )
+
+        project.run("lintDebug")
+        val report = project.read("build/lint.txt")
+        assertTrue(report.contains("[IntentFilterRequiresExported]"), report)
+        assertTrue(report.contains("[ExportedWithoutRequirement]"), report)
+        assertTrue(report.contains("[ImplicitIntentToUnexportedActivity]"), report)
+        assertTrue(report.contains("Navigation.kt"), report)
+    }
+
+    @Test
     fun `published artifacts do not depend on kotlin-stdlib`() {
         val poms = File(Versions.testRepo, "dev/tilbrook").walkTopDown().filter { it.extension == "pom" }.toList()
-        assertTrue(poms.size >= 2, "expected annotation and plugin POMs, found $poms")
+        assertTrue(poms.size >= 3, "expected annotation, lint and plugin POMs, found $poms")
         poms.forEach { assertFalse(it.readText().contains("kotlin-stdlib"), "${it.name} depends on kotlin-stdlib") }
     }
 

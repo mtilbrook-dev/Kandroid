@@ -110,6 +110,7 @@ testing {
                     dependsOn(
                         "publishAllPublicationsToTestRepoRepository",
                         ":typed-manifest:annotations:publishAllPublicationsToTestRepoRepository",
+                        ":typed-manifest:lint:publishAllPublicationsToTestRepoRepository",
                     )
                     inputs.dir(testRepo).withPropertyName("testRepo").withPathSensitivity(PathSensitivity.RELATIVE)
                     systemProperty("typedManifest.testRepo", testRepo.get().asFile.absolutePath)

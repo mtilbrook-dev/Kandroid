@@ -18,8 +18,8 @@ import org.gradle.api.tasks.TaskProvider
  *   manifest merger (`variant.sources.manifests`). Generation is wired before `pre<Variant>Build`.
  * - Honours `android.builtInKotlin`: with built-in Kotlin off and no Kotlin plugin applied, `.kt`
  *   files aren't compiled, so they aren't scanned either.
- * - Adds the annotations artifact as a compile-only dependency for each enabled entry kind that is
- *   valid for the module type.
+ * - Adds the annotations artifact as a compile-only dependency, and the lint checks to `lintChecks`,
+ *   for each enabled entry kind that is valid for the module type.
  * - Registers `migrateManifestToAnnotations` to move existing `<activity>` entries onto annotations.
  */
 class TypedManifestPlugin : Plugin<Project> {
@@ -97,19 +97,25 @@ class TypedManifestPlugin : Plugin<Project> {
     private fun addAnnotationDependencies(project: Project, extension: TypedManifestExtension, moduleType: ModuleType) {
         val kinds = ManifestEntryKind.all.filter { moduleType in it.supportedModuleTypes }
         val enabled = kinds.associateWith { extension.options(it).enabled }
-        val addDependency = extension.addAnnotationDependency
         val factory = project.dependencyFactory
-        project.configurations
-            .matching { it.name == moduleType.compileOnlyConfiguration }
-            .configureEach { configuration ->
-                configuration.withDependencies { deps ->
-                    if (!addDependency.get()) return@withDependencies
-                    kinds.filter { enabled.getValue(it).get() }
-                        .map { it.annotationModule }
-                        .distinct()
-                        .forEach { deps.add(factory.create("$it:${BuildInfo.VERSION}")) }
+
+        fun addTo(configurationName: String, toggle: Property<Boolean>, module: (ManifestEntryKind) -> String?) {
+            project.configurations
+                .matching { it.name == configurationName }
+                .configureEach { configuration ->
+                    configuration.withDependencies { deps ->
+                        if (!toggle.get()) return@withDependencies
+                        kinds.filter { enabled.getValue(it).get() }
+                            .mapNotNull(module)
+                            .distinct()
+                            .forEach { deps.add(factory.create("$it:${BuildInfo.VERSION}")) }
+                    }
                 }
-            }
+        }
+
+        addTo(moduleType.compileOnlyConfiguration, extension.addAnnotationDependency) { it.annotationModule }
+        // AGP's configuration for lint check jars that run on this module.
+        addTo("lintChecks", extension.addLintChecks) { it.lintModule }
     }
 
     private fun registerVariant(

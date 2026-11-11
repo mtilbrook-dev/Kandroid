@@ -31,15 +31,19 @@ sealed class ManifestEntryKind(
     val supportedModuleTypes: Set<ModuleType>,
     /** `group:name` of the annotations artifact; the plugin version is appended. */
     val annotationModule: String,
+    /** `group:name` of the lint checks for this kind, added to `lintChecks`. */
+    val lintModule: String?,
 ) {
     data object Activity : ManifestEntryKind(
         id = "activity",
         supportedModuleTypes = ModuleType.entries.toSet(),
         annotationModule = ANNOTATIONS_MODULE,
+        lintModule = LINT_MODULE,
     )
 
     companion object {
         const val ANNOTATIONS_MODULE = "dev.tilbrook:typed-manifest-annotations"
+        const val LINT_MODULE = "dev.tilbrook:typed-manifest-lint"
         val all: List<ManifestEntryKind> get() = listOf(Activity)
     }
 }

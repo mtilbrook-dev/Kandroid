@@ -9,6 +9,7 @@ import javax.inject.Inject
  * ```kotlin
  * typedManifest {
  *     addAnnotationDependency = true // default
+ *     addLintChecks = true           // default
  *     activities { enabled = true }  // default
  * }
  * ```
@@ -17,6 +18,9 @@ abstract class TypedManifestExtension @Inject constructor(objects: ObjectFactory
 
     /** Add the annotations artifact as a compile-only dependency for each enabled entry kind. Default `true`. */
     abstract val addAnnotationDependency: Property<Boolean>
+
+    /** Add the typed-manifest Android Lint checks to `lintChecks`. Default `true`. */
+    abstract val addLintChecks: Property<Boolean>
 
     /** Options for `@Manifest.Activity`. */
     val activities: EntryOptions = objects.newInstance(EntryOptions::class.java)
@@ -29,6 +33,7 @@ abstract class TypedManifestExtension @Inject constructor(objects: ObjectFactory
 
     init {
         addAnnotationDependency.convention(true)
+        addLintChecks.convention(true)
         activities.enabled.convention(true)
     }
 }

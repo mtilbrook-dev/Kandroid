@@ -23,3 +23,4 @@ rootProject.name = "kandroid"
 // typed-manifest plugin
 include(":typed-manifest:annotations")
 include(":typed-manifest:gradle-plugin")
+include(":typed-manifest:lint")
