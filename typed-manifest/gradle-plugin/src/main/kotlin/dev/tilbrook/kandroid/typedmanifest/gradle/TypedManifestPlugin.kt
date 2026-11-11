@@ -131,6 +131,10 @@ class TypedManifestPlugin : Plugin<Project> {
             it.description = "Adds @Manifest entries to the ${variant.name} merged manifest."
             variant.sources.kotlin?.let { dirs -> it.sourceDirectories.from(dirs.static) }
             variant.sources.java?.let { dirs -> it.sourceDirectories.from(dirs.static) }
+            // The KMP variant's Sources don't list the Kotlin source set dirs, so add the
+            // conventional Android ones explicitly. (Common code can't subclass Activity.)
+            val src = project.layout.projectDirectory.dir("src")
+            it.sourceDirectories.from(src.dir("androidMain/kotlin"), src.dir("androidMain/java"))
             it.activitiesEnabled.set(extension.activities.enabled)
         }
         variant.artifacts.use(task)
