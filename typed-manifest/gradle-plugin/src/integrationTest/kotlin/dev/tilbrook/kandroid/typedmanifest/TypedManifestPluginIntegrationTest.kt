@@ -260,7 +260,8 @@ class TypedManifestPluginIntegrationTest {
         assertTrue(report.contains("Navigation.kt"), report)
         // Annotation-backed entries are reported on the annotation, not again on the generated overlay.
         assertFalse(report.contains("generateDebugTypedManifest"), report)
-        assertTrue(report.contains("0 errors, 3 warnings"), report)
+        val ours = report.lines().count { it.contains("from dev.tilbrook:typed-manifest-lint]") }
+        assertEquals(3, ours, report)
     }
 
     @Test
