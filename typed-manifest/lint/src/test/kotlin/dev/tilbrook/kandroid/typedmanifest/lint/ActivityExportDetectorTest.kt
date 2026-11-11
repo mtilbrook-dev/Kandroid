@@ -15,7 +15,7 @@ class ActivityExportDetectorTest : LintDetectorTest() {
     )
 
     private fun check(vararg files: com.android.tools.lint.checks.infrastructure.TestFile) =
-        lint().files(appManifest(), manifestAnnotations, *files).testModes(TestMode.DEFAULT).run()
+        lint().files(appManifest(), manifestAnnotations, *files).testModes(TestMode.DEFAULT, TestMode.PARTIAL).run()
 
     fun testBrowsableFilterWithoutExportedIsFlagged() {
         check(
@@ -150,7 +150,7 @@ class ActivityExportDetectorTest : LintDetectorTest() {
                     </activity>
                 """,
             ),
-        ).testModes(TestMode.DEFAULT).run()
+        ).testModes(TestMode.DEFAULT, TestMode.PARTIAL).run()
             .expectWarningCount(2)
             .expectContains("IntentFilterRequiresExported")
             .expectContains("ExportedWithoutRequirement")

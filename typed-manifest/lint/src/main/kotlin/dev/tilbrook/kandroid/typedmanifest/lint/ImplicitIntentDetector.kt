@@ -5,12 +5,14 @@ import com.android.tools.lint.detector.api.Category
 import com.android.tools.lint.detector.api.ConstantEvaluator
 import com.android.tools.lint.detector.api.Detector
 import com.android.tools.lint.detector.api.Implementation
+import com.android.tools.lint.detector.api.Incident
 import com.android.tools.lint.detector.api.Issue
 import com.android.tools.lint.detector.api.JavaContext
 import com.android.tools.lint.detector.api.Project
 import com.android.tools.lint.detector.api.Scope
 import com.android.tools.lint.detector.api.Severity
 import com.android.tools.lint.detector.api.SourceCodeScanner
+import com.android.tools.lint.detector.api.targetSdkAtLeast
 import com.intellij.psi.PsiMethod
 import org.jetbrains.uast.UBinaryExpression
 import org.jetbrains.uast.UCallExpression
@@ -73,8 +75,6 @@ class ImplicitIntentDetector : Detector(), SourceCodeScanner {
 
     private fun check(context: JavaContext, node: UExpression, actionArg: UExpression) {
         val action = ConstantEvaluator.evaluateString(context, actionArg, false) ?: return
-        val targetSdk = context.mainProject.targetSdk
-        if (targetSdk in 1..33) return
         if (isMadeExplicit(node)) return
 
         val hidden = activities(context).filter { activity ->
@@ -86,12 +86,12 @@ class ImplicitIntentDetector : Detector(), SourceCodeScanner {
         if (!reported.add(key)) return
 
         val names = hidden.joinToString { "`${it.name.substringAfterLast('.')}`" }
-        context.report(
-            ISSUE, node, context.getLocation(node),
-            "Implicit intent for `$action` matches $names, which isn't exported. From Android 14 implicit " +
-                "intents only reach exported activities: make this intent explicit (`setPackage`/`setClass`) " +
-                "or set `exported = true` on the activity.",
-        )
+        val message = "Implicit intent for `$action` matches $names, which isn't exported. From Android 14 implicit " +
+            "intents only reach exported activities: make this intent explicit (`setPackage`/`setClass`) " +
+            "or set `exported = true` on the activity."
+        // Only a problem for apps targeting 34+. Expressed as a constraint so lint's per-module
+        // (partial) analysis evaluates it against the consuming app's targetSdk.
+        context.report(Incident(ISSUE, node, context.getLocation(node), message), targetSdkAtLeast(34))
     }
 
     /** True if the enclosing function sets a package or component on an Intent anywhere. */
@@ -125,7 +125,9 @@ class ImplicitIntentDetector : Detector(), SourceCodeScanner {
     }
 
     private fun activities(context: JavaContext): List<ActivityInfo> {
-        val fromManifest = manifestCache.getOrPut(context.mainProject) { manifestActivities(context.mainProject) }
+        // context.project, not mainProject: AGP runs lint per module. An app module's merged
+        // manifest already includes its libraries' activities.
+        val fromManifest = manifestCache.getOrPut(context.project) { manifestActivities(context.project) }
         val fromFile = context.uastFile?.let { annotatedIn(it) }.orEmpty()
         val annotated = fromFile.map { it.name }.toSet()
         return fromManifest.filter { it.name.replace('$', '.') !in annotated } + fromFile

@@ -22,7 +22,7 @@ class ImplicitIntentDetectorTest : LintDetectorTest() {
     """
 
     private fun run(manifest: TestFile, vararg files: TestFile) =
-        lint().files(manifest, manifestAnnotations, *files).testModes(TestMode.DEFAULT).run()
+        lint().files(manifest, manifestAnnotations, *files).testModes(TestMode.DEFAULT, TestMode.PARTIAL).run()
 
     fun testImplicitIntentToHiddenActivityIsFlagged() {
         run(
