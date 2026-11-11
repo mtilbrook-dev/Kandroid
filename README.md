@@ -15,6 +15,7 @@ Kandroid/
 ├── core/                      # modules shared by more than one plugin (see core/README.md)
 ├── typed-manifest/            # one directory per plugin
 │   ├── annotations/           #   dev.tilbrook:typed-manifest-annotations
+│   ├── lint/                  #   dev.tilbrook:typed-manifest-lint (Android Lint checks)
 │   └── gradle-plugin/         #   dev.tilbrook:typed-manifest-gradle-plugin
 │       └── src/
 │           ├── main/          #   plugin + source scanner + generator + migrator
@@ -92,6 +93,28 @@ Supported and tested modules:
 | `com.android.kotlin.multiplatform.library` | KGP |
 | `kotlin("multiplatform")` + `com.android.application` | KGP; AGP 9 only allows this with `android.builtInKotlin=false` and `android.newDsl=false` |
 
+### Lint checks
+
+The plugin adds `dev.tilbrook:typed-manifest-lint` to `lintChecks`, so these run in `./gradlew lint`
+and show as highlights (with tooltips and quick fixes) in Android Studio:
+
+| ID | Flags | Fix |
+| --- | --- | --- |
+| `IntentFilterRequiresExported` | An activity with a filter that only other apps or the system use (LAUNCHER, BROWSABLE, `autoVerify` App Links, SEND share targets, settings, widget configuration, …) that isn't `exported = true` | Set `exported = true` |
+| `ImplicitIntentToUnexportedActivity` | `Intent("action")`, `setAction(…)` or `intent.action = …` with no package or component set, whose action matches a non-exported activity. On targetSdk 34+, implicit intents only reach exported activities | Make the intent explicit, or export the activity |
+| `ExportedWithoutRequirement` | `exported = true` with no intent filter and no `permission`, so any app can start it by class name | Set `exported = false`, or guard it with a (signature) permission |
+
+The first and third checks run on both `@Manifest.Activity` and `<activity>` in AndroidManifest.xml.
+The implicit-intent check reads the module's merged manifest (which includes generated entries)
+plus annotations in the current file. It supports lint's per-module (partial) analysis.
+
+An exported activity without an intent filter is sometimes legitimate: a companion app or SDK
+partner starting it by component name, or a system `settingsActivity` reference. Protect it with
+`permission`, or suppress the check with `@SuppressLint("ExportedWithoutRequirement")` /
+`tools:ignore`.
+
+Turn the checks off with `typedManifest { addLintChecks = false }`.
+
 ### Why the plugin reads source
 
 Manifest merging runs before Kotlin compilation, and compilation depends on the merged manifest
@@ -108,6 +131,7 @@ these limits:
 ```kotlin
 typedManifest {
     addAnnotationDependency = true // default
+    addLintChecks = true           // default
     activities { enabled = true }  // default
 }
 ```
