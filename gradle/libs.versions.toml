@@ -1,7 +1,7 @@
 [versions]
 kandroid = "0.1.0"
 kotlin = "2.4.10"
-# Oldest Kotlin our published artifacts target (language/API 2.2 + this stdlib).
+# Oldest Kotlin our published artifacts target: language/API 2.2, compiled against this stdlib (compileOnly).
 kotlinConsumerStdlib = "2.2.20"
 gradle-android = "9.4.1"
 # Bytecode level for published artifacts. Gradle 9 itself requires Java 17+.
@@ -12,6 +12,7 @@ android-minSdk = "24"
 junit = "5.13.4"
 
 [libraries]
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlinConsumerStdlib" }
 android-gradle-api = { module = "com.android.tools.build:gradle-api", version.ref = "gradle-android" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }

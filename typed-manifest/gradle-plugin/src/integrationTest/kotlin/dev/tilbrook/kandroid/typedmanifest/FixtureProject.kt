@@ -57,6 +57,38 @@ enum class ModuleKind(
             }
         """.trimIndent(),
     ),
+    /** AGP built-in Kotlin turned off; Kotlin compiled by `org.jetbrains.kotlin.android`. */
+    APPLICATION_KGP(
+        namespace = "com.example.appkgp",
+        kotlinDir = "src/main/kotlin",
+        javaDir = "src/main/java",
+        manifestPath = "src/main/AndroidManifest.xml",
+        assembleTask = "assembleDebug",
+        gradleProperties = "android.builtInKotlin=false\n",
+        buildScript = """
+            plugins {
+                id("com.android.application")
+                id("org.jetbrains.kotlin.android")
+                id("dev.tilbrook.typed-manifest")
+            }
+            android {
+                namespace = "com.example.appkgp"
+                compileSdk = ${Versions.compileSdk}
+                defaultConfig {
+                    applicationId = "com.example.appkgp"
+                    minSdk = ${Versions.minSdk}
+                    targetSdk = ${Versions.compileSdk}
+                    versionCode = 1
+                    versionName = "1.0"
+                }
+                compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_17
+                    targetCompatibility = JavaVersion.VERSION_17
+                }
+            }
+            kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+        """.trimIndent(),
+    ),
     LIBRARY(
         namespace = "com.example.lib",
         kotlinDir = "src/main/kotlin",
@@ -74,6 +106,32 @@ enum class ModuleKind(
                 compileSdk = ${Versions.compileSdk}
                 defaultConfig { minSdk = ${Versions.minSdk} }
             }
+        """.trimIndent(),
+    ),
+    /** AGP built-in Kotlin turned off; Kotlin compiled by `org.jetbrains.kotlin.android`. */
+    LIBRARY_KGP(
+        namespace = "com.example.libkgp",
+        kotlinDir = "src/main/kotlin",
+        javaDir = "src/main/java",
+        manifestPath = "src/main/AndroidManifest.xml",
+        assembleTask = "assembleDebug",
+        gradleProperties = "android.builtInKotlin=false\n",
+        buildScript = """
+            plugins {
+                id("com.android.library")
+                id("org.jetbrains.kotlin.android")
+                id("dev.tilbrook.typed-manifest")
+            }
+            android {
+                namespace = "com.example.libkgp"
+                compileSdk = ${Versions.compileSdk}
+                defaultConfig { minSdk = ${Versions.minSdk} }
+                compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_17
+                    targetCompatibility = JavaVersion.VERSION_17
+                }
+            }
+            kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
         """.trimIndent(),
     ),
     KMP_LIBRARY(
@@ -139,9 +197,40 @@ enum class ModuleKind(
             }
         """.trimIndent(),
     ),
+    /** KMP + com.android.application with AGP's defaults (built-in Kotlin on, new DSL). */
+    KMP_APPLICATION_BUILT_IN_KOTLIN(
+        namespace = "com.example.kmpappbuiltin",
+        kotlinDir = "src/androidMain/kotlin",
+        javaDir = null,
+        manifestPath = "src/androidMain/AndroidManifest.xml",
+        assembleTask = "assembleDebug",
+        gradleProperties = "",
+        buildScript = """
+            plugins {
+                id("org.jetbrains.kotlin.multiplatform")
+                id("com.android.application")
+                id("dev.tilbrook.typed-manifest")
+            }
+            kotlin { androidTarget() }
+            android {
+                namespace = "com.example.kmpappbuiltin"
+                compileSdk = ${Versions.compileSdk}
+                defaultConfig {
+                    applicationId = "com.example.kmpappbuiltin"
+                    minSdk = ${Versions.minSdk}
+                    targetSdk = ${Versions.compileSdk}
+                    versionCode = 1
+                    versionName = "1.0"
+                }
+            }
+        """.trimIndent(),
+    ),
     ;
 
-    val isLibrary get() = this == LIBRARY || this == KMP_LIBRARY
+    val isLibrary get() = this == LIBRARY || this == LIBRARY_KGP || this == KMP_LIBRARY
+
+    /** Variant whose pre-build task the generate task must precede; null where AGP has no overlay hook. */
+    val preBuildTask get() = if (this == KMP_LIBRARY) null else ":preDebugBuild"
     val packagePath get() = namespace.replace('.', '/')
 }
 
@@ -168,6 +257,7 @@ class FixtureProject(val kind: ModuleKind, testName: String) {
                     id("com.android.library") version "${Versions.agp}"
                     id("com.android.kotlin.multiplatform.library") version "${Versions.agp}"
                     id("org.jetbrains.kotlin.multiplatform") version "${Versions.kotlin}"
+                    id("org.jetbrains.kotlin.android") version "${Versions.kotlin}"
                     id("dev.tilbrook.typed-manifest") version "${Versions.plugin}"
                 }
             }

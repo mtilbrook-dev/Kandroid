@@ -30,12 +30,20 @@ abstract class GenerateTypedManifestTask : DefaultTask() {
     @get:Input
     abstract val activitiesEnabled: Property<Boolean>
 
+    /**
+     * False when `android.builtInKotlin=false` and no Kotlin plugin is applied: `.kt` files aren't
+     * compiled then, so annotations in them must not produce manifest entries.
+     */
+    @get:Input
+    abstract val includeKotlinSources: Property<Boolean>
+
     @get:OutputFile
     abstract val outputManifest: RegularFileProperty
 
     @TaskAction
     fun generate() {
-        val files = sourceDirectories.asFileTree.matching { it.include("**/*.kt", "**/*.java") }.files.sorted()
+        val patterns = if (includeKotlinSources.getOrElse(true)) arrayOf("**/*.kt", "**/*.java") else arrayOf("**/*.java")
+        val files = sourceDirectories.asFileTree.matching { it.include(*patterns) }.files.sorted()
         val entries = try {
             ManifestGenerator.collect(
                 files.asSequence().map { SourceInput(it.path, it.readText()) },

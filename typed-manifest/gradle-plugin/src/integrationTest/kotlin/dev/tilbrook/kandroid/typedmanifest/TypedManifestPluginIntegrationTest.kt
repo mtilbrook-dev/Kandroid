@@ -68,6 +68,11 @@ class TypedManifestPluginIntegrationTest {
 
         val build = project.run(kind.assembleTask)
         project.assertGenerateTaskRan(build)
+        kind.preBuildTask?.let { preBuild ->
+            val order = build.tasks.map { it.path }
+            val generate = order.indexOf(":generateDebugTypedManifest")
+            assertTrue(generate >= 0 && generate < order.indexOf(preBuild), "generate must run before $preBuild: $order")
+        }
 
         val main = project.mergedActivity("$pkg.MainActivity")
         val activities = project.mergedActivities()
@@ -171,6 +176,33 @@ class TypedManifestPluginIntegrationTest {
         )
         val result = project.runAndFail("generateDebugTypedManifest")
         assertTrue(result.output.contains("MainActivity.kt:5: MainActivity has a MAIN/LAUNCHER intent filter but is not exported"), result.output)
+    }
+
+    @Test
+    fun `kotlin sources are ignored when nothing compiles them`() {
+        // builtInKotlin=false and no Kotlin plugin: .kt files are not part of the build.
+        val project = FixtureProject(ModuleKind.APPLICATION, "no-kotlin")
+        project.file("gradle.properties", project.read("gradle.properties") + "android.builtInKotlin=false\n")
+        project.baseManifest()
+        project.file(
+            "src/main/kotlin/com/example/app/Ghost.kt",
+            "package com.example.app\nimport dev.tilbrook.kandroid.typedmanifest.Manifest\n@Manifest.Activity class GhostActivity\n",
+        )
+        project.file(
+            "src/main/java/com/example/app/JavaActivity.java",
+            "package com.example.app;\nimport dev.tilbrook.kandroid.typedmanifest.Manifest;\n@Manifest.Activity\npublic class JavaActivity extends android.app.Activity {}\n",
+        )
+        project.run("assembleDebug")
+        val activities = project.mergedActivities()
+        assertTrue(activities.containsKey("com.example.app.JavaActivity"), activities.keys.toString())
+        assertFalse(activities.containsKey("com.example.app.GhostActivity"), activities.keys.toString())
+    }
+
+    @Test
+    fun `published artifacts do not depend on kotlin-stdlib`() {
+        val poms = File(Versions.testRepo, "dev/tilbrook").walkTopDown().filter { it.extension == "pom" }.toList()
+        assertTrue(poms.size >= 2, "expected annotation and plugin POMs, found $poms")
+        poms.forEach { assertFalse(it.readText().contains("kotlin-stdlib"), "${it.name} depends on kotlin-stdlib") }
     }
 
     @Test

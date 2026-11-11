@@ -47,7 +47,6 @@ val generateBuildInfo = tasks.register("generateBuildInfo") {
 kotlin {
     // Emit metadata older compilers can read: AGP 9.x built-in Kotlin and Gradle's embedded
     // Kotlin are behind the version we build with.
-    coreLibrariesVersion = libs.versions.kotlinConsumerStdlib.get()
     compilerOptions {
         jvmTarget = JvmTarget.fromTarget(jvmTargetVersion)
         languageVersion = KotlinVersion.KOTLIN_2_2
@@ -67,6 +66,8 @@ dependencies {
     // Enum/constant tables are read from the annotations module so there is one source of truth.
     implementation(projects.typedManifest.annotations)
     compileOnly(libs.android.gradle.api)
+    // Gradle provides kotlin-stdlib at runtime; depending on it would only add version conflicts.
+    compileOnly(libs.kotlin.stdlib)
 }
 
 publishing {
@@ -93,12 +94,14 @@ testing {
     suites {
         named<JvmTestSuite>("test") {
             useJUnitJupiter(libs.versions.junit)
+            dependencies { implementation(libs.kotlin.stdlib) }
         }
 
         register<JvmTestSuite>("integrationTest") {
             useJUnitJupiter(libs.versions.junit)
             dependencies {
                 implementation(gradleTestKit())
+                implementation(libs.kotlin.stdlib)
             }
             targets.configureEach {
                 testTask.configure {

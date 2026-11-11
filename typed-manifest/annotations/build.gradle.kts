@@ -12,7 +12,6 @@ val jvmTargetVersion = libs.versions.jvmTarget.get()
 kotlin {
     // Emit metadata older compilers can read: AGP 9.x built-in Kotlin and Gradle's embedded
     // Kotlin are behind the version we build with.
-    coreLibrariesVersion = libs.versions.kotlinConsumerStdlib.get()
     compilerOptions {
         jvmTarget = JvmTarget.fromTarget(jvmTargetVersion)
         languageVersion = KotlinVersion.KOTLIN_2_2
@@ -25,6 +24,11 @@ java {
     targetCompatibility = JavaVersion.toVersion(jvmTargetVersion)
     withSourcesJar()
     withJavadocJar()
+}
+
+dependencies {
+    // Not a runtime dependency: consumers only compile against these SOURCE-retention annotations.
+    compileOnly(libs.kotlin.stdlib)
 }
 
 publishing {

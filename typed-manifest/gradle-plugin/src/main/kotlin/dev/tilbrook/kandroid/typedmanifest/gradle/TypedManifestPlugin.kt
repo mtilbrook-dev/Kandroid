@@ -8,13 +8,16 @@ import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.TaskProvider
 
 /**
  * `dev.tilbrook.typed-manifest`
  *
  * - Generates a per-variant manifest overlay from `@Manifest.*` annotations and hands it to AGP's
- *   manifest merger (`variant.sources.manifests`).
+ *   manifest merger (`variant.sources.manifests`). Generation is wired before `pre<Variant>Build`.
+ * - Honours `android.builtInKotlin`: with built-in Kotlin off and no Kotlin plugin applied, `.kt`
+ *   files aren't compiled, so they aren't scanned either.
  * - Adds the annotations artifact as a compile-only dependency for each enabled entry kind that is
  *   valid for the module type.
  * - Registers `migrateManifestToAnnotations` to move existing `<activity>` entries onto annotations.
@@ -24,6 +27,8 @@ class TypedManifestPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("typedManifest", TypedManifestExtension::class.java)
         val migrate = registerMigrationTask(project)
+        // Resolved in afterEvaluate, once every plugin has been applied; tasks read it lazily.
+        val kotlinCompiled = project.objects.property(Boolean::class.java)
 
         var wired = false
         fun wire(block: () -> Unit) {
@@ -35,26 +40,42 @@ class TypedManifestPlugin : Plugin<Project> {
         project.pluginManager.withPlugin("com.android.application") {
             wire {
                 project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
-                    .onVariants { registerVariant(project, extension, it, migrate) }
+                    .onVariants { registerVariant(project, extension, it, migrate, kotlinCompiled) }
             }
         }
         project.pluginManager.withPlugin("com.android.library") {
             wire {
                 project.extensions.getByType(LibraryAndroidComponentsExtension::class.java)
-                    .onVariants { registerVariant(project, extension, it, migrate) }
+                    .onVariants { registerVariant(project, extension, it, migrate, kotlinCompiled) }
             }
         }
         project.pluginManager.withPlugin("com.android.kotlin.multiplatform.library") {
             wire {
                 project.extensions.getByType(KotlinMultiplatformAndroidComponentsExtension::class.java)
-                    .onVariants { registerKmpLibraryVariant(project, extension, it, migrate) }
+                    .onVariants { registerKmpLibraryVariant(project, extension, it, migrate, kotlinCompiled) }
             }
         }
 
         project.afterEvaluate {
             val moduleType = detectModuleType(project)
+            kotlinCompiled.set(isKotlinCompiled(project, moduleType))
+            kotlinCompiled.finalizeValue()
             addAnnotationDependencies(project, extension, moduleType)
         }
+    }
+
+    /**
+     * AGP 9 compiles Kotlin itself unless `android.builtInKotlin=false`; then a Kotlin Gradle plugin
+     * (`org.jetbrains.kotlin.android` or multiplatform) has to be applied for `.kt` sources to build.
+     */
+    private fun isKotlinCompiled(project: Project, moduleType: ModuleType): Boolean {
+        if (moduleType.isMultiplatform) return true
+        val builtInKotlin = project.providers.gradleProperty("android.builtInKotlin")
+            .map { it.trim().toBoolean() }
+            .getOrElse(true)
+        return builtInKotlin ||
+            project.pluginManager.hasPlugin("org.jetbrains.kotlin.android") ||
+            project.pluginManager.hasPlugin("org.jetbrains.kotlin.multiplatform")
     }
 
     private fun detectModuleType(project: Project): ModuleType {
@@ -96,6 +117,7 @@ class TypedManifestPlugin : Plugin<Project> {
         extension: TypedManifestExtension,
         variant: Component,
         migrate: TaskProvider<MigrateManifestTask>,
+        kotlinCompiled: Property<Boolean>,
     ) {
         val capitalized = variant.name.replaceFirstChar { it.uppercase() }
         val task = project.tasks.register("generate${capitalized}TypedManifest", GenerateTypedManifestTask::class.java) {
@@ -104,11 +126,18 @@ class TypedManifestPlugin : Plugin<Project> {
             variant.sources.kotlin?.let { dirs -> it.sourceDirectories.from(dirs.static) }
             variant.sources.java?.let { dirs -> it.sourceDirectories.from(dirs.static) }
             it.activitiesEnabled.set(extension.activities.enabled)
+            it.includeKotlinSources.set(kotlinCompiled)
             it.outputManifest.set(
                 project.layout.buildDirectory.file("generated/typed-manifest/${variant.name}/AndroidManifest.xml"),
             )
         }
         variant.sources.manifests.addGeneratedManifestFile(task, GenerateTypedManifestTask::outputManifest)
+
+        // Make sure the overlay exists before AGP's pre-build checks look at the variant's manifest
+        // sources. Spec-based named() is lazy: it matches the task whenever AGP registers it and only
+        // configures it if it is realised.
+        val preBuild = "pre${capitalized}Build"
+        project.tasks.named { it == preBuild }.configureEach { it.dependsOn(task) }
 
         // Any variant's namespace is fine for resolving relative names in the main manifest.
         val namespace = variant.namespace
@@ -124,11 +153,13 @@ class TypedManifestPlugin : Plugin<Project> {
         extension: TypedManifestExtension,
         variant: Component,
         migrate: TaskProvider<MigrateManifestTask>,
+        kotlinCompiled: Property<Boolean>,
     ) {
         val capitalized = variant.name.replaceFirstChar { it.uppercase() }
         val task = project.tasks.register("inject${capitalized}TypedManifest", InjectTypedManifestTask::class.java) {
             it.group = "typed manifest"
             it.description = "Adds @Manifest entries to the ${variant.name} merged manifest."
+            it.includeKotlinSources.set(kotlinCompiled)
             variant.sources.kotlin?.let { dirs -> it.sourceDirectories.from(dirs.static) }
             variant.sources.java?.let { dirs -> it.sourceDirectories.from(dirs.static) }
             // The KMP variant's Sources don't list the Kotlin source set dirs, so add the
