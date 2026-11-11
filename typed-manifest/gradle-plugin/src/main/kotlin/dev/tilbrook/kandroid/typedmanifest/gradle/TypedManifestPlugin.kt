@@ -147,6 +147,18 @@ class TypedManifestPlugin : Plugin<Project> {
         val preBuild = "pre${capitalized}Build"
         project.tasks.named { it == preBuild }.configureEach { it.dependsOn(task) }
 
+        // Lint findings in the generated overlay -> annotation locations, after the reports are written.
+        val remap = project.tasks.register("remap${capitalized}LintReports", RemapLintReportsTask::class.java) {
+            it.sourceMaps.from(task.flatMap { generate -> generate.sourceMap })
+            it.projectDirectory.set(project.layout.projectDirectory)
+        }
+        val lintReport = "lintReport$capitalized"
+        project.tasks.named { it == lintReport }.configureEach { report ->
+            report.finalizedBy(remap)
+            val outputs = report.outputs.files
+            remap.configure { it.reports.from(outputs) }
+        }
+
         // Any variant's namespace is fine for resolving relative names in the main manifest.
         val namespace = variant.namespace
         migrate.configure { if (!it.namespace.isPresent) it.namespace.set(namespace) }

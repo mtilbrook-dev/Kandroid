@@ -28,9 +28,9 @@ internal data class SourceMap(
 
     /** [path] with the generated-manifest suffix swapped for [sourcePath], keeping whatever prefix it had. */
     fun swapPath(path: String, sourcePath: String): String {
-        val n = normalise(path)
-        val prefix = n.removeSuffix(normalise(generatedManifest))
-        val separator = if ('\\' in path && '/' !in path.removePrefix(prefix)) "\\" else "/"
+        // Same length whatever the separators, so keep the original prefix verbatim.
+        val prefix = path.substring(0, path.length - generatedManifest.length)
+        val separator = if ('\\' in path.substring(prefix.length)) "\\" else "/"
         return prefix + sourcePath.replace("/", separator)
     }
 
